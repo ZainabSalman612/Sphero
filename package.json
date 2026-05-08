@@ -1,9 +1,9 @@
 {
-  "name": "sphero-app",
+  "name": "sphero",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -11,7 +11,15 @@
   "dependencies": {
     "next": "16.2.6",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "framer-motion": "^12",
+    "zustand": "^5",
+    "recharts": "^2",
+    "lucide-react": "^0.500",
+    "date-fns": "^4",
+    "clsx": "^2",
+    "tailwind-merge": "^3",
+    "class-variance-authority": "^0.7"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
