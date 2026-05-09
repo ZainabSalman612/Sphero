@@ -69,22 +69,7 @@ Sphero is a unified search engine that aggregates real-time public discussions f
 - `src/lib/`: Utility functions, constants, and mock data generators
 - `src/styles/`: Global CSS and Tailwind configurations
 
-## Deployment
-
-### Vercel (Frontend & Backend)
-
-This project is configured for a unified deployment on Vercel using the provided `vercel.json`.
-
-1. **Connect to Vercel:** Push your code to GitHub/GitLab/Bitbucket and import the project into Vercel.
-2. **Environment Variables:** Add `GOOGLE_GEMINI_API_KEY` in the Vercel dashboard.
-3. **Build & Deployment:** Vercel will automatically detect the `vercel.json` and deploy both the Next.js frontend and the Python FastAPI backend as serverless functions.
-
-The API will be accessible at:
-- Frontend: `https://your-project.vercel.app`
-- Backend API: `https://your-project.vercel.app/api/v1`
-
 ## Contributing
-
 Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## License
