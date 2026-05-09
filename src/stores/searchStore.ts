@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import type { UnifiedPost, AISummaryData, PlatformHeat, Platform, FilterType } from "@/lib/types";
-import { generateMockPosts, generateMockAISummary, generateMockPlatformHeat } from "@/lib/mock-data";
+import { API_BASE_URL } from "@/lib/constants";
 
 interface SearchStore {
   query: string;
@@ -78,24 +78,28 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
 
     set({ isLoading: true, query, hasSearched: true });
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/search?q=${encodeURIComponent(query)}`);
+      
+      if (!response.ok) throw new Error("Search API failed");
+      
+      const data = await response.json();
+      
+      const { activePlatform, activeFilter, searchHistory } = get();
+      const newHistory = [query, ...searchHistory.filter((h) => h !== query)].slice(0, 20);
 
-    const results = generateMockPosts(query);
-    const aiSummary = generateMockAISummary(query);
-    const platformHeat = generateMockPlatformHeat(query);
-    const { activePlatform, activeFilter, searchHistory } = get();
-
-    const newHistory = [query, ...searchHistory.filter((h) => h !== query)].slice(0, 20);
-
-    set({
-      results,
-      filteredResults: filterResults(results, activePlatform, activeFilter),
-      aiSummary,
-      platformHeat,
-      isLoading: false,
-      searchHistory: newHistory,
-    });
+      set({
+        results: data.results,
+        filteredResults: filterResults(data.results, activePlatform, activeFilter),
+        aiSummary: data.aiSummary,
+        platformHeat: data.platformHeat,
+        isLoading: false,
+        searchHistory: newHistory,
+      });
+    } catch (error) {
+      console.error("Search failed:", error);
+      set({ isLoading: false });
+    }
   },
 
   setActivePlatform: (platform) => {
