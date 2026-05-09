@@ -6,7 +6,7 @@ Sphero is a unified search engine that aggregates real-time public discussions f
 
 ![Sphero Header](https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop)
 
-## ✨ Features
+## Features
 
 - **Unified Social Search:** Search once and get results from X (Twitter), Reddit, YouTube, Hacker News, Medium, and more.
 - **AI-Powered Insights:** Real-time summarization of social sentiment, trending narratives, and controversial takes using Google Gemini 1.5 Flash.
@@ -15,7 +15,7 @@ Sphero is a unified search engine that aggregates real-time public discussions f
 - **Personal Dashboard:** Authenticated users can track their search history, view activity stats, and save bookmarks.
 - **Platform Heatmaps:** Visual representation of platform discussion intensity using Recharts.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ### Frontend
 - **Framework:** [Next.js 15 (App Router)](https://nextjs.org/)
@@ -30,7 +30,7 @@ Sphero is a unified search engine that aggregates real-time public discussions f
 - **AI Engine:** Google Gemini 1.5 Flash
 - **API Integration:** Hacker News (Algolia), Mock Platform Adapters
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 - Node.js 18.17 or later
@@ -61,7 +61,7 @@ Sphero is a unified search engine that aggregates real-time public discussions f
 
 5. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## 📁 Project Structure
+## Project Structure
 
 - `src/app/`: Next.js App Router (Pages, Layouts, API Routes)
 - `src/components/`: Reusable UI components (Search, AI, Layout)
@@ -69,8 +69,8 @@ Sphero is a unified search engine that aggregates real-time public discussions f
 - `src/lib/`: Utility functions, constants, and mock data generators
 - `src/styles/`: Global CSS and Tailwind configurations
 
-## 🤝 Contributing
+## Contributing
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 📄 License
+## License
 This project is licensed under the MIT License.
