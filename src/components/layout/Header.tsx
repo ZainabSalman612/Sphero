@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useSearchStore } from "@/stores/searchStore";
+import { useAuthStore } from "@/stores/authStore";
 import { Radio, Menu, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function Header() {
   const { isLiveMode, toggleLiveMode } = useSearchStore();
+  const { isAuthenticated, user } = useAuthStore();
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[var(--color-sphero-border)] bg-[var(--color-sphero-bg)]/80 backdrop-blur-md">
@@ -39,16 +41,28 @@ export function Header() {
             LIVE
           </button>
 
-          <button className="p-2 text-[var(--color-sphero-text-secondary)] hover:text-white transition-colors rounded-full hover:bg-white/5 relative">
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--color-sphero-accent)] rounded-full border border-[var(--color-sphero-bg)]" />
-          </button>
+          {isAuthenticated ? (
+            <>
+              <button className="p-2 text-[var(--color-sphero-text-secondary)] hover:text-white transition-colors rounded-full hover:bg-white/5 relative">
+                <Bell className="w-5 h-5" />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[var(--color-sphero-accent)] rounded-full border border-[var(--color-sphero-bg)]" />
+              </button>
 
-          <Link href="/login" className="p-1 rounded-full bg-gradient-to-tr from-[var(--color-sphero-accent)] to-[var(--color-sphero-cyan)]">
-            <div className="w-8 h-8 rounded-full bg-[var(--color-sphero-bg)] flex items-center justify-center text-white/80 hover:text-white transition-colors">
-              <User className="w-4 h-4" />
-            </div>
-          </Link>
+              <Link href="/dashboard" className="p-1 rounded-full bg-gradient-to-tr from-[var(--color-sphero-accent)] to-[var(--color-sphero-cyan)] glow-cyan hover:glow-accent-strong transition-all">
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt={user.name} className="w-8 h-8 rounded-full object-cover border-2 border-[var(--color-sphero-bg)]" />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-[var(--color-sphero-bg)] flex items-center justify-center text-white/80 font-bold text-sm">
+                    {user?.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </Link>
+            </>
+          ) : (
+            <Link href="/login" className="px-4 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">
+              Sign In
+            </Link>
+          )}
         </div>
       </div>
     </header>
