@@ -2,6 +2,9 @@ import asyncio
 import random
 from typing import List, Dict, Any
 from app.schemas.search import UnifiedPost, AISummaryData, PlatformHeat, SearchResponse
+import os
+import json
+import google.generativeai as genai
 from app.adapters.hackernews import HackerNewsAdapter
 from app.adapters.mock import MockAdapter
 
@@ -15,6 +18,10 @@ class SearchService:
             MockAdapter("youtube", delay_ms=800),
             MockAdapter("medium", delay_ms=500),
         ]
+        
+        # Initialize Gemini
+        genai.configure(api_key=os.getenv("GOOGLE_GEMINI_API_KEY"))
+        self.model = genai.GenerativeModel('gemini-1.5-flash')
 
     async def execute_search(self, query: str) -> SearchResponse:
         """
@@ -52,8 +59,12 @@ class SearchService:
             
         heat_data.sort(key=lambda x: x.count, reverse=True)
         
-        # Generate AI Summary (Mocked for now since no OpenAI key)
-        ai_summary = self._generate_mock_summary(query, all_posts)
+        # Generate AI Summary
+        try:
+            ai_summary = await self._generate_real_summary(query, all_posts)
+        except Exception as e:
+            print(f"Error generating real AI summary: {e}")
+            ai_summary = self._generate_mock_summary(query, all_posts)
         
         return SearchResponse(
             query=query,
@@ -62,6 +73,56 @@ class SearchService:
             platformHeat=heat_data
         )
         
+    async def _generate_real_summary(self, query: str, posts: List[UnifiedPost]) -> AISummaryData:
+        """
+        Calls Google Gemini to generate a real summary based on the aggregated posts.
+        """
+        if not posts:
+            return self._generate_mock_summary(query, [])
+
+        # Prepare the context for the LLM
+        context_lines = []
+        for p in posts[:15]:
+            context_lines.append(f"[{p.platform.upper()}] {p.authorName}: {p.content}")
+        
+        context_text = "\n".join(context_lines)
+        
+        prompt = f"""
+        You are an expert social media analyst for Sphero, an AI-powered social intelligence engine.
+        Analyze the following recent social media posts about '{query}' and provide a structured summary in JSON format.
+        
+        POSTS:
+        {context_text}
+        
+        The JSON must match this structure:
+        {{
+            "overallSummary": "A concise 2-3 sentence overview of the discussion.",
+            "keyOpinions": ["List of 3 distinct viewpoints or opinions shared by users"],
+            "trendingNarratives": ["List of 2-3 emerging stories or topics within the discussion"],
+            "sentimentBreakdown": {{
+                "positive": percentage_as_int,
+                "negative": percentage_as_int,
+                "neutral": percentage_as_int
+            }},
+            "controversialTakes": ["List of 2 controversial or hot takes found in the posts"]
+        }}
+        
+        Ensure the sentiment percentages sum to 100.
+        Provide ONLY the raw JSON. Do not include any markdown formatting like ```json.
+        """
+
+        # Gemini 1.5 Flash is fast and good for this
+        response = await self.model.generate_content_async(
+            prompt,
+            generation_config={"response_mime_type": "application/json"}
+        )
+        
+        if not response.text:
+            raise ValueError("Empty response from Gemini")
+            
+        data = json.loads(response.text)
+        return AISummaryData.model_validate(data)
+
     def _generate_mock_summary(self, query: str, posts: List[UnifiedPost]) -> AISummaryData:
         # Mocking the AI summarization
         pos = sum(1 for p in posts if p.sentiment == "positive")

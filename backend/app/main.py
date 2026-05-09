@@ -1,6 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1 import search
+import os
+from dotenv import load_dotenv
+from pathlib import Path
+
+# Load .env.local from project root
+env_path = Path(__file__).resolve().parent.parent.parent / ".env.local"
+if env_path.exists():
+    load_dotenv(dotenv_path=env_path)
+
 
 app = FastAPI(
     title="Sphero API",

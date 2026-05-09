@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "backend-dev": "cd backend && venv\\Scripts\\activate && python -m uvicorn app.main:app --reload",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
