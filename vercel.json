@@ -14,22 +14,22 @@
       }
     }
   ],
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/py/:path*",
-      "destination": "backend/app/main.py"
+      "src": "/api/py/(.*)",
+      "dest": "backend/app/main.py"
     },
     {
-      "source": "/api/v1/search",
-      "destination": "backend/app/main.py"
+      "src": "/api/v1/search",
+      "dest": "backend/app/main.py"
     },
     {
-      "source": "/api/v1/health",
-      "destination": "backend/app/main.py"
+      "src": "/api/v1/health",
+      "dest": "backend/app/main.py"
     },
     {
-      "source": "/(.*)",
-      "destination": "/$1"
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ],
   "env": {
