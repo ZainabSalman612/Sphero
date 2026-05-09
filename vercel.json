@@ -1,0 +1,38 @@
+{
+  "version": 2,
+  "name": "sphero",
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/next"
+    },
+    {
+      "src": "backend/app/main.py",
+      "use": "@vercel/python",
+      "config": {
+        "maxDuration": 30
+      }
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/py/:path*",
+      "destination": "backend/app/main.py"
+    },
+    {
+      "source": "/api/v1/search",
+      "destination": "backend/app/main.py"
+    },
+    {
+      "source": "/api/v1/health",
+      "destination": "backend/app/main.py"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/$1"
+    }
+  ],
+  "env": {
+    "PYTHONPATH": "backend"
+  }
+}
