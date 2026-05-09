@@ -1,6 +1,8 @@
 # 🔵 Sphero — AI-Powered Social Intelligence Engine
 
-Sphero is a professional, high-performance social search engine that aggregates public discussions and content from across the internet into one unified, beautiful interface.
+**Search once. See everything.** 
+
+Sphero is a unified search engine that aggregates real-time public discussions from X (Twitter), Reddit, Hacker News, and across the social web into a single AI-powered intelligence dashboard. It doesn't just find links—it summarizes the global sentiment and extracts the core narratives behind any topic.
 
 ![Sphero Header](https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop)
 
