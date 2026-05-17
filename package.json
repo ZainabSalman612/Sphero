@@ -9,17 +9,18 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "class-variance-authority": "^0.7",
+    "clsx": "^2",
+    "date-fns": "^4",
+    "framer-motion": "^12",
+    "lucide-react": "^0.500",
     "next": "16.2.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
-    "framer-motion": "^12",
-    "zustand": "^5",
     "recharts": "^2",
-    "lucide-react": "^0.500",
-    "date-fns": "^4",
-    "clsx": "^2",
     "tailwind-merge": "^3",
-    "class-variance-authority": "^0.7"
+    "zustand": "^5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
