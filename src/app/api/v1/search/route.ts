@@ -69,7 +69,106 @@ async function fetchHackerNewsPosts(query: string) {
   }
 }
 
-// ── Strip HTML from HN comments ────────────────────────────────────────
+// ── YouTube Data API types ─────────────────────────────────────────────
+interface YTSearchItem {
+  id: { videoId?: string };
+  snippet: {
+    title: string;
+    description: string;
+    channelTitle: string;
+    publishedAt: string;
+    thumbnails: { high?: { url: string }; medium?: { url: string }; default?: { url: string } };
+  };
+}
+
+interface YTStatsItem {
+  id: string;
+  statistics: {
+    viewCount?: string;
+    likeCount?: string;
+    commentCount?: string;
+  };
+}
+
+// ── Fetch real YouTube videos ──────────────────────────────────────────
+async function fetchYouTubePosts(query: string) {
+  const apiKey = process.env.YOUTUBE_DATA_API_KEY;
+  if (!apiKey) {
+    console.warn("YOUTUBE_DATA_API_KEY not set — skipping YouTube fetch");
+    return [];
+  }
+
+  try {
+    // Step 1: Search for videos
+    const searchRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(query)}&relevanceLanguage=en&key=${apiKey}`,
+      { next: { revalidate: 120 } }
+    );
+
+    if (!searchRes.ok) {
+      console.error("YouTube search error:", searchRes.status, await searchRes.text());
+      return [];
+    }
+
+    const searchData = await searchRes.json();
+    const items: YTSearchItem[] = searchData.items || [];
+    const videoIds = items.map((item) => item.id.videoId).filter(Boolean);
+
+    if (videoIds.length === 0) return [];
+
+    // Step 2: Get video statistics (views, likes, comments)
+    const statsRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/videos?part=statistics&id=${videoIds.join(",")}&key=${apiKey}`,
+      { next: { revalidate: 120 } }
+    );
+
+    let statsMap: Record<string, YTStatsItem["statistics"]> = {};
+    if (statsRes.ok) {
+      const statsData = await statsRes.json();
+      for (const stat of (statsData.items || []) as YTStatsItem[]) {
+        statsMap[stat.id] = stat.statistics;
+      }
+    }
+
+    // Step 3: Map to UnifiedPost format
+    return items
+      .filter((item) => item.id.videoId)
+      .map((item) => {
+        const videoId = item.id.videoId!;
+        const stats = statsMap[videoId] || {};
+        const views = parseInt(stats.viewCount || "0", 10);
+        const likes = parseInt(stats.likeCount || "0", 10);
+        const ytComments = parseInt(stats.commentCount || "0", 10);
+        const thumbnail = item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url || item.snippet.thumbnails.default?.url;
+
+        return {
+          id: `yt-${videoId}`,
+          platform: "youtube" as const,
+          authorName: item.snippet.channelTitle,
+          authorAvatar: null,
+          authorHandle: `@${item.snippet.channelTitle.toLowerCase().replace(/\s+/g, "")}`,
+          content: item.snippet.title,
+          url: `https://www.youtube.com/watch?v=${videoId}`,
+          deepLink: `https://www.youtube.com/watch?v=${videoId}`,
+          timestamp: item.snippet.publishedAt,
+          engagement: {
+            likes,
+            comments: ytComments,
+            shares: 0,
+            views,
+          },
+          mediaUrl: thumbnail,
+          mediaType: "video" as const,
+          sentiment: "neutral" as const,
+          relevanceScore: Math.min(1.0, Math.max(0.5, views / 500000)),
+        };
+      });
+  } catch (err) {
+    console.error("YouTube fetch error:", err);
+    return [];
+  }
+}
+
 function stripHtml(html: string): string {
   return html
     .replace(/<[^>]*>/g, " ")
@@ -276,19 +375,27 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Fetch real Hacker News data
-    const { storyPosts, stories, comments } = await fetchHackerNewsPosts(query);
+    // 1. Fetch real data from live APIs in parallel
+    const [hnData, ytPosts] = await Promise.all([
+      fetchHackerNewsPosts(query),
+      fetchYouTubePosts(query),
+    ]);
 
-    // 2. Get mock posts for other platforms (X, Reddit, Medium, YouTube)
+    const { storyPosts, stories, comments } = hnData;
+
+    // 2. Get mock posts for platforms without live APIs (X, Reddit, Medium)
+    //    Filter out HN and YouTube since those are now live
     const allMocks = generateMockPosts(query);
-    const mockPosts = allMocks.filter((p) => p.platform !== "hackernews");
+    const mockPosts = allMocks.filter(
+      (p) => p.platform !== "hackernews" && p.platform !== "youtube"
+    );
 
-    // 3. Combine & sort by relevance
-    const combinedResults = [...storyPosts, ...mockPosts].sort(
+    // 3. Combine all sources & sort by relevance
+    const combinedResults = [...storyPosts, ...ytPosts, ...mockPosts].sort(
       (a, b) => b.relevanceScore - a.relevanceScore
     );
 
-    // 4. Generate REAL AI summary via Gemini (runs in parallel-ish with nothing else)
+    // 4. Generate REAL AI summary via Gemini
     const aiSummary = await generateAISummary(query, stories, comments);
 
     // 5. Build platform heat from actual data
@@ -299,6 +406,11 @@ export async function GET(request: Request) {
         intensity: Math.min(5, Math.ceil(storyPosts.length / 2)),
       },
       {
+        platform: "youtube" as const,
+        count: ytPosts.length,
+        intensity: Math.min(5, Math.ceil(ytPosts.length / 2)),
+      },
+      {
         platform: "x" as const,
         count: mockPosts.filter((p) => p.platform === "x").length * 1500,
         intensity: 5,
@@ -307,11 +419,6 @@ export async function GET(request: Request) {
         platform: "reddit" as const,
         count: mockPosts.filter((p) => p.platform === "reddit").length * 1200,
         intensity: 4,
-      },
-      {
-        platform: "youtube" as const,
-        count: mockPosts.filter((p) => p.platform === "youtube").length * 800,
-        intensity: 3,
       },
       {
         platform: "medium" as const,
