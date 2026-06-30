@@ -96,7 +96,7 @@ export default function DashboardPage() {
                     <p className="text-white group-hover:text-[var(--color-sphero-cyan)] transition-colors line-clamp-2">
                       {i === 1 ? "The conversation around AI is hitting a tipping point. Every major tech CEO..." : 
                        i === 2 ? "Just had a fascinating discussion about frontend frameworks at work..." :
-                       "Show HN: I built an open-source tool to analyze trends across academic papers..."}
+                       "I built an open-source tool to analyze trends across academic papers..."}
                     </p>
                   </div>
                   <button className="text-[var(--color-sphero-text-muted)] hover:text-red-400 p-2">

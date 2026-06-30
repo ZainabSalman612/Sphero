@@ -5,69 +5,7 @@ import type { AISummaryData } from "@/lib/types";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
 
-// ── Hacker News Algolia types ──────────────────────────────────────────
-interface HNHit {
-  objectID: string;
-  title?: string;
-  story_text?: string;
-  comment_text?: string;
-  author?: string;
-  url?: string;
-  created_at: string;
-  points?: number;
-  num_comments?: number;
-}
-
-// ── Fetch real HN posts ────────────────────────────────────────────────
-async function fetchHackerNewsPosts(query: string) {
-  try {
-    // Fetch stories
-    const storiesRes = await fetch(
-      `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(query)}&tags=story&hitsPerPage=10`,
-      { next: { revalidate: 60 } }
-    );
-
-    // Fetch comments for richer context
-    const commentsRes = await fetch(
-      `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(query)}&tags=comment&hitsPerPage=15`,
-      { next: { revalidate: 60 } }
-    );
-
-    const [storiesData, commentsData] = await Promise.all([
-      storiesRes.ok ? storiesRes.json() : { hits: [] },
-      commentsRes.ok ? commentsRes.json() : { hits: [] },
-    ]);
-
-    const stories: HNHit[] = storiesData.hits || [];
-    const comments: HNHit[] = commentsData.hits || [];
-
-    // Map stories → UnifiedPost format
-    const storyPosts = stories
-      .filter((hit: HNHit) => hit.title)
-      .map((hit: HNHit) => ({
-        id: `hn-${hit.objectID}`,
-        platform: "hackernews" as const,
-        authorName: hit.author || "anonymous",
-        authorAvatar: null,
-        authorHandle: hit.author || "anonymous",
-        content: hit.title || "",
-        url: hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`,
-        timestamp: hit.created_at,
-        engagement: {
-          likes: hit.points || 0,
-          comments: hit.num_comments || 0,
-          shares: 0,
-        },
-        relevanceScore: Math.min(1.0, Math.max(0.5, (hit.points || 0) / 500.0)),
-        sentiment: "neutral" as const,
-      }));
-
-    return { storyPosts, stories, comments };
-  } catch (err) {
-    console.error("HN fetch error:", err);
-    return { storyPosts: [], stories: [], comments: [] };
-  }
-}
+// Removed HackerNews Algolia types and fetch implementation
 
 // ── YouTube Data API types ─────────────────────────────────────────────
 interface YTSearchItem {
@@ -182,26 +120,18 @@ function stripHtml(html: string): string {
 }
 
 // ── Build prompt for Gemini ────────────────────────────────────────────
-function buildGeminiPrompt(query: string, stories: HNHit[], comments: HNHit[]): string {
-  const storyBlock = stories
-    .slice(0, 10)
-    .map((s, i) => `${i + 1}. "${s.title}" by ${s.author} (${s.points ?? 0} pts, ${s.num_comments ?? 0} comments)`)
-    .join("\n");
-
-  const commentBlock = comments
+function buildGeminiPrompt(query: string, posts: import("@/lib/types").UnifiedPost[]): string {
+  const postBlock = posts
     .slice(0, 15)
-    .map((c) => `- ${stripHtml(c.comment_text || c.story_text || "").slice(0, 300)}`)
+    .map((p, i) => `${i + 1}. "${p.content}" by ${p.authorName} (${p.engagement.likes ?? 0} likes, ${p.engagement.comments ?? 0} comments)`)
     .join("\n");
 
   return `You are an expert social-media analyst. A user searched for "${query}".
 
-Below are REAL Hacker News stories and comments about this topic.
+Below are REAL posts/videos about this topic.
 
-=== TOP STORIES ===
-${storyBlock || "No stories found."}
-
-=== SAMPLE COMMENTS ===
-${commentBlock || "No comments found."}
+=== TOP POSTS ===
+${postBlock || "No posts found."}
 
 Analyze the above content and return a JSON object with EXACTLY this structure (no markdown, no code fences, just raw JSON):
 
@@ -219,7 +149,7 @@ Analyze the above content and return a JSON object with EXACTLY this structure (
 
 Rules:
 - The three sentiment numbers MUST add up to 100.
-- Base your analysis ONLY on the real posts/comments above.
+- Base your analysis ONLY on the real posts above.
 - keyOpinions: 5 distinct viewpoints expressed in the discussion.
 - trendingNarratives: 4 emerging themes or recurring narratives.
 - controversialTakes: 2-3 divisive or provocative statements from the discussion.
@@ -254,46 +184,40 @@ async function callGeminiWithRetry(prompt: string, maxRetries = 2): Promise<stri
 // ── Smart local fallback when Gemini is unavailable ────────────────────
 function buildLocalFallbackSummary(
   query: string,
-  stories: HNHit[],
-  comments: HNHit[]
+  posts: import("@/lib/types").UnifiedPost[]
 ): AISummaryData {
-  const topStories = stories.slice(0, 5);
-  const topComments = comments.slice(0, 10);
+  const topPosts = posts.slice(0, 10);
 
-  // Build summary from actual titles
-  const titleList = topStories.map((s) => s.title).filter(Boolean);
-  const overallSummary = titleList.length > 0
-    ? `Hacker News is actively discussing "${query}" with ${stories.length} recent stories and ${comments.length} comments. Top discussions include: ${titleList.slice(0, 3).map(t => `"${t}"`).join(", ")}. The community shows strong engagement with diverse perspectives on this topic.`
-    : `The search for "${query}" returned limited results from Hacker News. This topic may be emerging or niche within the HN community.`;
+  // Build summary from actual content
+  const contentList = topPosts.map((p) => p.content).filter(Boolean);
+  const overallSummary = contentList.length > 0
+    ? `The community is actively discussing "${query}" with ${posts.length} recent posts. Top discussions include: ${contentList.slice(0, 3).map(t => `"${t}"`).join(", ")}. The community shows strong engagement with diverse perspectives on this topic.`
+    : `The search for "${query}" returned limited results. This topic may be emerging or niche.`;
 
-  // Extract key opinions from comment snippets
-  const commentTexts = topComments
-    .map((c) => stripHtml(c.comment_text || c.story_text || ""))
-    .filter((t) => t.length > 30);
-  const keyOpinions = commentTexts.length > 0
-    ? commentTexts.slice(0, 5).map((t) => t.slice(0, 150) + (t.length > 150 ? "…" : ""))
+  const keyOpinions = contentList.length > 0
+    ? contentList.slice(0, 5).map((t) => t.slice(0, 150) + (t.length > 150 ? "…" : ""))
     : ["Community discussion is ongoing — check individual posts for detailed viewpoints"];
 
-  // Narratives from story titles
-  const trendingNarratives = titleList.length > 0
-    ? titleList.slice(0, 4)
+  // Narratives from content
+  const trendingNarratives = contentList.length > 0
+    ? contentList.slice(0, 4)
     : ["No strong narratives detected yet for this search"];
 
   // Simple engagement-based sentiment approximation
-  const totalPoints = topStories.reduce((sum, s) => sum + (s.points || 0), 0);
-  const totalComments = topStories.reduce((sum, s) => sum + (s.num_comments || 0), 0);
-  const engagementRatio = totalComments > 0 ? totalPoints / totalComments : 1;
+  const totalLikes = topPosts.reduce((sum, p) => sum + (p.engagement.likes || 0), 0);
+  const totalComments = topPosts.reduce((sum, p) => sum + (p.engagement.comments || 0), 0);
+  const engagementRatio = totalComments > 0 ? totalLikes / totalComments : 1;
 
-  // High points-to-comments ratio = positive, low = controversial/negative
+  // High likes-to-comments ratio = positive, low = controversial/negative
   const positive = Math.round(Math.min(65, Math.max(20, engagementRatio * 15)));
   const negative = Math.round(Math.min(40, Math.max(10, 100 - engagementRatio * 20)));
   const neutral = 100 - positive - negative;
 
-  // Controversial = highest comment counts relative to points
-  const controversial = [...topStories]
-    .sort((a, b) => ((b.num_comments || 0) / Math.max(b.points || 1, 1)) - ((a.num_comments || 0) / Math.max(a.points || 1, 1)))
+  // Controversial = highest comment counts relative to likes
+  const controversial = [...topPosts]
+    .sort((a, b) => ((b.engagement.comments || 0) / Math.max(b.engagement.likes || 1, 1)) - ((a.engagement.comments || 0) / Math.max(a.engagement.likes || 1, 1)))
     .slice(0, 3)
-    .map((s) => s.title || "")
+    .map((p) => p.content || "")
     .filter(Boolean);
 
   return {
@@ -310,27 +234,26 @@ function buildLocalFallbackSummary(
 // ── Call Gemini for real AI summarization ───────────────────────────────
 async function generateAISummary(
   query: string,
-  stories: HNHit[],
-  comments: HNHit[]
+  posts: import("@/lib/types").UnifiedPost[]
 ): Promise<AISummaryData | null> {
   // If there's no data to analyze, skip entirely
-  if (stories.length === 0 && comments.length === 0) {
+  if (posts.length === 0) {
     return null;
   }
 
   // If no API key, go straight to local fallback
   if (!process.env.GOOGLE_GEMINI_API_KEY) {
     console.warn("GOOGLE_GEMINI_API_KEY not set — using local fallback");
-    return buildLocalFallbackSummary(query, stories, comments);
+    return buildLocalFallbackSummary(query, posts);
   }
 
   try {
-    const prompt = buildGeminiPrompt(query, stories, comments);
+    const prompt = buildGeminiPrompt(query, posts);
     const text = await callGeminiWithRetry(prompt);
 
     if (!text) {
       console.warn("Gemini returned no text — using local fallback");
-      return buildLocalFallbackSummary(query, stories, comments);
+      return buildLocalFallbackSummary(query, posts);
     }
 
     // Strip potential markdown code fences the model might add
@@ -358,7 +281,7 @@ async function generateAISummary(
     return parsed;
   } catch (err) {
     console.error("Gemini AI summary error — falling back to local analysis:", err);
-    return buildLocalFallbackSummary(query, stories, comments);
+    return buildLocalFallbackSummary(query, posts);
   }
 }
 
@@ -376,28 +299,20 @@ export async function GET(request: Request) {
 
   try {
     // 1. Fetch real data from live APIs in parallel
-    const [hnData, ytPosts] = await Promise.all([
-      fetchHackerNewsPosts(query),
+    const [ytPosts] = await Promise.all([
       fetchYouTubePosts(query),
     ]);
 
-    const { storyPosts, stories, comments } = hnData;
-
     // 2. Combine all real sources only (no mock data) & sort by relevance
-    const combinedResults = [...storyPosts, ...ytPosts].sort(
+    const combinedResults = [...ytPosts].sort(
       (a, b) => b.relevanceScore - a.relevanceScore
     );
 
     // 4. Generate REAL AI summary via Gemini
-    const aiSummary = await generateAISummary(query, stories, comments);
+    const aiSummary = await generateAISummary(query, combinedResults);
 
     // 5. Build platform heat from actual data only
     const platformHeat = [
-      {
-        platform: "hackernews" as const,
-        count: storyPosts.length,
-        intensity: Math.min(5, Math.ceil(storyPosts.length / 2)),
-      },
       {
         platform: "youtube" as const,
         count: ytPosts.length,

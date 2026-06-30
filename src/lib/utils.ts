@@ -48,7 +48,6 @@ export function getPlatformColor(platform: string): string {
     tiktok: "#00F2EA",
     facebook: "#1877F2",
     medium: "#000000",
-    hackernews: "#FF6600",
   };
   return colors[platform] || "#7c3aed";
 }

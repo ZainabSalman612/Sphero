@@ -140,45 +140,6 @@ export function generateMockPosts(query: string): UnifiedPost[] {
       sentiment: "negative",
       relevanceScore: 0.86,
     },
-    // Hacker News posts
-    {
-      id: "hn-1",
-      platform: "hackernews",
-      authorName: "pg_disciple",
-      authorAvatar: null,
-      authorHandle: "pg_disciple",
-      content: `Show HN: I built an open-source tool to analyze "${query}" trends across academic papers and industry reports. Uses NLP to extract key insights. GitHub link in comments.`,
-      url: "https://news.ycombinator.com/item?id=12345",
-      timestamp: new Date(now.getTime() - 3 * 3600000).toISOString(),
-      engagement: { likes: 567, comments: 189, shares: 0 },
-      sentiment: "positive",
-      relevanceScore: 0.94,
-    },
-    {
-      id: "hn-2",
-      platform: "hackernews",
-      authorName: "sysadmin_sage",
-      authorAvatar: null,
-      authorHandle: "sysadmin_sage",
-      content: `Interesting paper from MIT on "${query}" — their methodology is solid and the conclusions are nuanced. Not the usual clickbait takes. Worth reading the full PDF.`,
-      url: "https://news.ycombinator.com/item?id=67890",
-      timestamp: new Date(now.getTime() - 7 * 3600000).toISOString(),
-      engagement: { likes: 342, comments: 98, shares: 0 },
-      sentiment: "neutral",
-      relevanceScore: 0.87,
-    },
-    {
-      id: "hn-3",
-      platform: "hackernews",
-      authorName: "startup_founder",
-      authorAvatar: null,
-      authorHandle: "startup_founder",
-      content: `As someone building in the "${query}" space — the technical challenges are real but solvable. The bigger issue is market timing. We're seeing enterprise adoption accelerate faster than expected.`,
-      url: "https://news.ycombinator.com/item?id=11111",
-      timestamp: new Date(now.getTime() - 10 * 3600000).toISOString(),
-      engagement: { likes: 234, comments: 67, shares: 0 },
-      sentiment: "positive",
-      relevanceScore: 0.83,
     },
   ];
 
@@ -187,7 +148,7 @@ export function generateMockPosts(query: string): UnifiedPost[] {
 
 export function generateMockAISummary(query: string): AISummaryData {
   return {
-    overallSummary: `The discussion around "${query}" is highly active across multiple platforms with a predominantly positive but nuanced sentiment. Technical communities on Hacker News and Reddit are focused on practical implementation challenges, while X/Twitter discourse centers on broader societal implications. Medium contributors provide deep-dive analyses with contrarian perspectives gaining traction. Overall, there's a clear divide between practitioners who see immediate value and observers who urge caution about long-term consequences.`,
+    overallSummary: `The discussion around "${query}" is highly active across multiple platforms with a predominantly positive but nuanced sentiment. Technical communities on Reddit are focused on practical implementation challenges, while X/Twitter discourse centers on broader societal implications. Medium contributors provide deep-dive analyses with contrarian perspectives gaining traction. Overall, there's a clear divide between practitioners who see immediate value and observers who urge caution about long-term consequences.`,
     keyOpinions: [
       "Senior engineers see transformative potential but emphasize the need for responsible implementation",
       "Industry analysts predict significant job market restructuring within 2-3 years",
@@ -218,7 +179,6 @@ export function generateMockPlatformHeat(query: string): PlatformHeat[] {
   return [
     { platform: "x", count: 15234, intensity: 5 },
     { platform: "reddit", count: 8901, intensity: 4 },
-    { platform: "hackernews", count: 3456, intensity: 3 },
     { platform: "youtube", count: 2100, intensity: 3 },
     { platform: "medium", count: 1200, intensity: 2 },
     { platform: "linkedin", count: 890, intensity: 1 },

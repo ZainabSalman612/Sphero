@@ -11,7 +11,6 @@ export const PLATFORM_TABS: PlatformTab[] = [
   { id: "tiktok", label: "TikTok", icon: "music", count: 0, available: false },
   { id: "facebook", label: "Facebook", icon: "facebook", count: 0, available: false },
   { id: "medium", label: "Medium", icon: "book-open", count: 0, available: true },
-  { id: "hackernews", label: "Hacker News", icon: "terminal", count: 0, available: true },
 ];
 
 export const SMART_FILTERS: { id: FilterType; label: string; icon: string }[] = [

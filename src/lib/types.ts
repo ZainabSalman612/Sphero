@@ -7,8 +7,7 @@ export type Platform =
   | "instagram"
   | "tiktok"
   | "facebook"
-  | "medium"
-  | "hackernews";
+  | "medium";
 
 export type Sentiment = "positive" | "negative" | "neutral" | "mixed";
 
