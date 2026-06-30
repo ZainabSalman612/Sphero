@@ -4,6 +4,8 @@ import { create } from "zustand";
 import type { UnifiedPost, AISummaryData, PlatformHeat, Platform, FilterType } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/constants";
 
+const ITEMS_PER_PAGE = 30;
+
 interface SearchStore {
   query: string;
   results: UnifiedPost[];
@@ -13,12 +15,18 @@ interface SearchStore {
   activePlatform: Platform | "all";
   activeFilter: FilterType | null;
   isLoading: boolean;
+  isLoadingMore: boolean;
   isLiveMode: boolean;
   searchHistory: string[];
   hasSearched: boolean;
+  nextPageToken: string | null;
+  currentPage: number;
+  totalPages: number;
 
   setQuery: (query: string) => void;
   performSearch: (query: string) => Promise<void>;
+  setPage: (page: number) => void;
+  loadMore: () => Promise<void>;
   setActivePlatform: (platform: Platform | "all") => void;
   setActiveFilter: (filter: FilterType | null) => void;
   toggleLiveMode: () => void;
@@ -58,6 +66,12 @@ function filterResults(
   return filtered;
 }
 
+function computeTotalPages(filteredCount: number, hasMore: boolean): number {
+  const fullPages = Math.ceil(filteredCount / ITEMS_PER_PAGE);
+  // If there are more results available from the API, add an extra page
+  return hasMore ? fullPages + 1 : Math.max(1, fullPages);
+}
+
 export const useSearchStore = create<SearchStore>((set, get) => ({
   query: "",
   results: [],
@@ -67,16 +81,20 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
   activePlatform: "all",
   activeFilter: null,
   isLoading: false,
+  isLoadingMore: false,
   isLiveMode: false,
   searchHistory: [],
   hasSearched: false,
+  nextPageToken: null,
+  currentPage: 1,
+  totalPages: 1,
 
   setQuery: (query) => set({ query }),
 
   performSearch: async (query: string) => {
     if (!query.trim()) return;
 
-    set({ isLoading: true, query, hasSearched: true });
+    set({ isLoading: true, query, hasSearched: true, nextPageToken: null, currentPage: 1 });
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/search?q=${encodeURIComponent(query)}`);
@@ -87,12 +105,16 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
       
       const { activePlatform, activeFilter, searchHistory } = get();
       const newHistory = [query, ...searchHistory.filter((h) => h !== query)].slice(0, 20);
+      const filtered = filterResults(data.results, activePlatform, activeFilter);
 
       set({
         results: data.results,
-        filteredResults: filterResults(data.results, activePlatform, activeFilter),
+        filteredResults: filtered,
         aiSummary: data.aiSummary,
         platformHeat: data.platformHeat,
+        nextPageToken: data.nextPageToken,
+        currentPage: 1,
+        totalPages: computeTotalPages(filtered.length, !!data.nextPageToken),
         isLoading: false,
         searchHistory: newHistory,
       });
@@ -102,19 +124,71 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
     }
   },
 
+  setPage: (page: number) => {
+    const { filteredResults, nextPageToken, totalPages } = get();
+    const startIndex = (page - 1) * ITEMS_PER_PAGE;
+
+    // If we need more data and have a token, fetch more first
+    if (startIndex >= filteredResults.length && nextPageToken) {
+      set({ currentPage: page });
+      get().loadMore();
+    } else {
+      set({ currentPage: Math.min(page, totalPages) });
+    }
+
+    // Scroll to top of results
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  },
+
+  loadMore: async () => {
+    const { query, nextPageToken, results, activePlatform, activeFilter, isLoadingMore, currentPage } = get();
+    if (!query.trim() || !nextPageToken || isLoadingMore) return;
+
+    set({ isLoadingMore: true });
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/api/v1/search?q=${encodeURIComponent(query)}&pageToken=${encodeURIComponent(nextPageToken)}`
+      );
+
+      if (!response.ok) throw new Error("Fetch more search results failed");
+
+      const data = await response.json();
+      const newResults = [...results, ...data.results];
+      const filtered = filterResults(newResults, activePlatform, activeFilter);
+
+      set({
+        results: newResults,
+        filteredResults: filtered,
+        nextPageToken: data.nextPageToken,
+        totalPages: computeTotalPages(filtered.length, !!data.nextPageToken),
+        isLoadingMore: false,
+      });
+    } catch (error) {
+      console.error("Failed to load more results:", error);
+      set({ isLoadingMore: false });
+    }
+  },
+
   setActivePlatform: (platform) => {
-    const { results, activeFilter } = get();
+    const { results, activeFilter, nextPageToken } = get();
+    const filtered = filterResults(results, platform, activeFilter);
     set({
       activePlatform: platform,
-      filteredResults: filterResults(results, platform, activeFilter),
+      filteredResults: filtered,
+      currentPage: 1,
+      totalPages: computeTotalPages(filtered.length, !!nextPageToken),
     });
   },
 
   setActiveFilter: (filter) => {
-    const { results, activePlatform } = get();
+    const { results, activePlatform, nextPageToken } = get();
+    const filtered = filterResults(results, activePlatform, filter);
     set({
       activeFilter: filter,
-      filteredResults: filterResults(results, activePlatform, filter),
+      filteredResults: filtered,
+      currentPage: 1,
+      totalPages: computeTotalPages(filtered.length, !!nextPageToken),
     });
   },
 
@@ -130,6 +204,10 @@ export const useSearchStore = create<SearchStore>((set, get) => ({
       activePlatform: "all",
       activeFilter: null,
       isLoading: false,
+      isLoadingMore: false,
       hasSearched: false,
+      nextPageToken: null,
+      currentPage: 1,
+      totalPages: 1,
     }),
 }));

@@ -32,7 +32,7 @@ export function ResultCard({ post, index, variant = "medium" }: ResultCardProps)
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.5) }}
-      onClick={() => window.open(targetUrl, '_blank', 'noopener,noreferrer')}
+      onClick={() => window.open(post.url, '_blank', 'noopener,noreferrer')}
       className={cn(
         "glass glass-hover p-5 flex flex-col gap-4 relative group transition-all duration-300",
         baseHeight[variant],

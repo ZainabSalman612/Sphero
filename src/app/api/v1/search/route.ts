@@ -3,9 +3,8 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { generateMockPosts } from "@/lib/mock-data";
 import type { AISummaryData } from "@/lib/types";
 
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_GEMINI_API_KEY || "");
+// Global instantiation removed, will initialize inside function
 
-// Removed HackerNews Algolia types and fetch implementation
 
 // ── YouTube Data API types ─────────────────────────────────────────────
 interface YTSearchItem {
@@ -29,30 +28,32 @@ interface YTStatsItem {
 }
 
 // ── Fetch real YouTube videos ──────────────────────────────────────────
-async function fetchYouTubePosts(query: string) {
+async function fetchYouTubePosts(query: string, pageToken?: string) {
   const apiKey = process.env.YOUTUBE_DATA_API_KEY;
   if (!apiKey) {
     console.warn("YOUTUBE_DATA_API_KEY not set — skipping YouTube fetch");
-    return [];
+    return { posts: [], nextPageToken: null };
   }
 
   try {
     // Step 1: Search for videos
+    const searchUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=50&q=${encodeURIComponent(query)}&relevanceLanguage=en${pageToken ? `&pageToken=${pageToken}` : ""}&key=${apiKey}`;
     const searchRes = await fetch(
-      `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=8&q=${encodeURIComponent(query)}&relevanceLanguage=en&key=${apiKey}`,
+      searchUrl,
       { next: { revalidate: 120 } }
     );
 
     if (!searchRes.ok) {
       console.error("YouTube search error:", searchRes.status, await searchRes.text());
-      return [];
+      return { posts: [], nextPageToken: null };
     }
 
     const searchData = await searchRes.json();
     const items: YTSearchItem[] = searchData.items || [];
+    const nextPageToken = searchData.nextPageToken || null;
     const videoIds = items.map((item) => item.id.videoId).filter(Boolean);
 
-    if (videoIds.length === 0) return [];
+    if (videoIds.length === 0) return { posts: [], nextPageToken: null };
 
     // Step 2: Get video statistics (views, likes, comments)
     const statsRes = await fetch(
@@ -69,7 +70,7 @@ async function fetchYouTubePosts(query: string) {
     }
 
     // Step 3: Map to UnifiedPost format
-    return items
+    const posts = items
       .filter((item) => item.id.videoId)
       .map((item) => {
         const videoId = item.id.videoId!;
@@ -101,9 +102,11 @@ async function fetchYouTubePosts(query: string) {
           relevanceScore: Math.min(1.0, Math.max(0.5, views / 500000)),
         };
       });
+
+    return { posts, nextPageToken };
   } catch (err) {
     console.error("YouTube fetch error:", err);
-    return [];
+    return { posts: [], nextPageToken: null };
   }
 }
 
@@ -159,7 +162,10 @@ Rules:
 
 // ── Call Gemini with retry logic ────────────────────────────────────────
 async function callGeminiWithRetry(prompt: string, maxRetries = 2): Promise<string | null> {
-  const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+  const apiKey = process.env.GOOGLE_GEMINI_API_KEY;
+  if (!apiKey) return null;
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
@@ -241,10 +247,16 @@ async function generateAISummary(
     return null;
   }
 
-  // If no API key, go straight to local fallback
+  // If no API key, return explicit error
   if (!process.env.GOOGLE_GEMINI_API_KEY) {
-    console.warn("GOOGLE_GEMINI_API_KEY not set — using local fallback");
-    return buildLocalFallbackSummary(query, posts);
+    console.warn("GOOGLE_GEMINI_API_KEY not set — cannot generate AI summary");
+    return {
+      overallSummary: "⚠️ AI Summary generation failed: No Gemini API Key was found. Please add GOOGLE_GEMINI_API_KEY to your .env.local file.",
+      keyOpinions: ["API Key Missing"],
+      trendingNarratives: ["API Key Missing"],
+      sentimentBreakdown: { positive: 33, negative: 33, neutral: 34 },
+      controversialTakes: ["API Key Missing"],
+    };
   }
 
   try {
@@ -253,7 +265,13 @@ async function generateAISummary(
 
     if (!text) {
       console.warn("Gemini returned no text — using local fallback");
-      return buildLocalFallbackSummary(query, posts);
+      return {
+        overallSummary: "⚠️ AI Summary generation failed: Gemini API returned an empty response.",
+        keyOpinions: ["Empty Response"],
+        trendingNarratives: ["Empty Response"],
+        sentimentBreakdown: { positive: 33, negative: 33, neutral: 34 },
+        controversialTakes: ["Empty Response"],
+      };
     }
 
     // Strip potential markdown code fences the model might add
@@ -279,9 +297,19 @@ async function generateAISummary(
     }
 
     return parsed;
-  } catch (err) {
-    console.error("Gemini AI summary error — falling back to local analysis:", err);
-    return buildLocalFallbackSummary(query, posts);
+  } catch (err: any) {
+    console.error("Gemini AI summary error:", err);
+    const is429 = err?.message?.includes("429") || err?.status === 429 || err?.statusText === "Too Many Requests";
+    
+    return {
+      overallSummary: is429 
+        ? "⚠️ AI Summary generation failed: Gemini API rate limit exceeded (429 Too Many Requests). Please check your Google AI Studio quota or billing details."
+        : "⚠️ AI Summary generation failed: An unexpected error occurred while communicating with the Gemini API.",
+      keyOpinions: ["API Error - Could not generate insights"],
+      trendingNarratives: ["API Error - Could not generate narratives"],
+      sentimentBreakdown: { positive: 33, negative: 33, neutral: 34 },
+      controversialTakes: ["API Error - Could not generate takes"],
+    };
   }
 }
 
@@ -289,6 +317,7 @@ async function generateAISummary(
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q");
+  const pageToken = searchParams.get("pageToken") || undefined;
 
   if (!query) {
     return NextResponse.json(
@@ -298,33 +327,34 @@ export async function GET(request: Request) {
   }
 
   try {
-    // 1. Fetch real data from live APIs in parallel
-    const [ytPosts] = await Promise.all([
-      fetchYouTubePosts(query),
-    ]);
+    // 1. Fetch real data from live APIs
+    const { posts: ytPosts, nextPageToken } = await fetchYouTubePosts(query, pageToken);
 
     // 2. Combine all real sources only (no mock data) & sort by relevance
     const combinedResults = [...ytPosts].sort(
       (a, b) => b.relevanceScore - a.relevanceScore
     );
 
-    // 4. Generate REAL AI summary via Gemini
-    const aiSummary = await generateAISummary(query, combinedResults);
+    // 4. Generate REAL AI summary via Gemini (only on first page search)
+    const aiSummary = pageToken ? null : await generateAISummary(query, combinedResults);
 
     // 5. Build platform heat from actual data only
-    const platformHeat = [
-      {
+    const platformHeat = [];
+    
+    if (ytPosts.length > 0) {
+      platformHeat.push({
         platform: "youtube" as const,
         count: ytPosts.length,
         intensity: Math.min(5, Math.ceil(ytPosts.length / 2)),
-      },
-    ];
+      });
+    }
 
     return NextResponse.json({
       query,
       results: combinedResults,
       aiSummary,
       platformHeat,
+      nextPageToken,
     });
   } catch (error) {
     console.error("Search API Error:", error);
