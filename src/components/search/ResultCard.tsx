@@ -2,7 +2,7 @@
 
 import { UnifiedPost } from "@/lib/types";
 import { cn, timeAgo, formatNumber, getDeepLink, getPlatformColor } from "@/lib/utils";
-import { Heart, MessageSquare, ExternalLink, Image as ImageIcon, Video, Link as LinkIcon, BarChart2, TrendingUp } from "lucide-react";
+import { Heart, MessageSquare, ExternalLink, Image as ImageIcon, Link as LinkIcon, BarChart2, TrendingUp } from "lucide-react";
 import { motion } from "framer-motion";
 import { SentimentBadge } from "@/components/ai/SentimentBadge";
 
@@ -93,10 +93,27 @@ export function ResultCard({ post, index, variant = "medium" }: ResultCardProps)
         {post.content.length > 250 ? `${post.content.substring(0, 250)}...` : post.content}
       </div>
 
-      {post.mediaType && (
+      {post.mediaType === "video" && post.mediaUrl ? (
+        <a
+          href={targetUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-auto relative rounded-2xl overflow-hidden border border-[var(--color-sphero-border)] aspect-video flex items-center justify-center group/media cursor-pointer hover:opacity-90 transition-opacity"
+        >
+          <img 
+            src={post.mediaUrl} 
+            alt={post.content}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-black/20 group-hover/media:bg-black/40 transition-colors flex items-center justify-center">
+            <div className="w-12 h-12 rounded-full bg-[var(--color-sphero-accent)] flex items-center justify-center">
+              <div className="w-0 h-0 border-l-6 border-l-transparent border-r-0 border-y-4 border-y-transparent border-l-white ml-1" />
+            </div>
+          </div>
+        </a>
+      ) : post.mediaType && (
         <div className="mt-auto relative rounded-2xl overflow-hidden bg-gradient-to-br from-[var(--color-sphero-accent)]/10 to-[var(--color-sphero-cyan)]/10 border border-[var(--color-sphero-border)] aspect-video flex items-center justify-center group/media cursor-pointer">
-          {post.mediaType === "video" ? <Video className="w-8 h-8 text-[var(--color-sphero-accent)] opacity-60 group-hover/media:opacity-100 transition-opacity" /> :
-           post.mediaType === "image" ? <ImageIcon className="w-8 h-8 text-[var(--color-sphero-accent)] opacity-60 group-hover/media:opacity-100 transition-opacity" /> :
+          {post.mediaType === "image" ? <ImageIcon className="w-8 h-8 text-[var(--color-sphero-accent)] opacity-60 group-hover/media:opacity-100 transition-opacity" /> :
            <LinkIcon className="w-8 h-8 text-[var(--color-sphero-accent)] opacity-60 group-hover/media:opacity-100 transition-opacity" />}
           <div className="absolute inset-0 bg-gradient-to-br from-[var(--color-sphero-accent)]/5 to-transparent opacity-0 group-hover/media:opacity-100 transition-opacity" />
         </div>

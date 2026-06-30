@@ -383,22 +383,15 @@ export async function GET(request: Request) {
 
     const { storyPosts, stories, comments } = hnData;
 
-    // 2. Get mock posts for platforms without live APIs (X, Reddit, Medium)
-    //    Filter out HN and YouTube since those are now live
-    const allMocks = generateMockPosts(query);
-    const mockPosts = allMocks.filter(
-      (p) => p.platform !== "hackernews" && p.platform !== "youtube"
-    );
-
-    // 3. Combine all sources & sort by relevance
-    const combinedResults = [...storyPosts, ...ytPosts, ...mockPosts].sort(
+    // 2. Combine all real sources only (no mock data) & sort by relevance
+    const combinedResults = [...storyPosts, ...ytPosts].sort(
       (a, b) => b.relevanceScore - a.relevanceScore
     );
 
     // 4. Generate REAL AI summary via Gemini
     const aiSummary = await generateAISummary(query, stories, comments);
 
-    // 5. Build platform heat from actual data
+    // 5. Build platform heat from actual data only
     const platformHeat = [
       {
         platform: "hackernews" as const,
@@ -410,22 +403,7 @@ export async function GET(request: Request) {
         count: ytPosts.length,
         intensity: Math.min(5, Math.ceil(ytPosts.length / 2)),
       },
-      {
-        platform: "x" as const,
-        count: mockPosts.filter((p) => p.platform === "x").length * 1500,
-        intensity: 5,
-      },
-      {
-        platform: "reddit" as const,
-        count: mockPosts.filter((p) => p.platform === "reddit").length * 1200,
-        intensity: 4,
-      },
-      {
-        platform: "medium" as const,
-        count: mockPosts.filter((p) => p.platform === "medium").length * 300,
-        intensity: 2,
-      },
-    ].sort((a, b) => b.count - a.count);
+    ];
 
     return NextResponse.json({
       query,

@@ -60,14 +60,14 @@ export function SearchBar() {
         <div
           className={cn(
             "absolute -inset-1 rounded-full blur opacity-25 group-hover:opacity-50 transition duration-500",
-            hasSearched ? "bg-white/10" : "bg-gradient-to-r from-purple-600 to-cyan-500"
+            hasSearched ? "bg-red-200/20" : "bg-gradient-to-r from-[var(--color-sphero-accent)] to-[var(--color-sphero-cyan)]"
           )}
         ></div>
         <div className="relative flex items-center w-full h-16 rounded-full glass-strong px-6 overflow-hidden">
           {isLoading ? (
             <Loader2 className="w-6 h-6 text-[var(--color-sphero-accent)] animate-spin mr-3" />
           ) : (
-            <Search className="w-6 h-6 text-[var(--color-sphero-text-secondary)] group-hover:text-[var(--color-sphero-accent-light)] transition-colors mr-3" />
+            <Search className="w-6 h-6 text-[var(--color-sphero-text-secondary)] group-hover:text-[var(--color-sphero-accent)] transition-colors mr-3" />
           )}
 
           <div className="relative flex-1 h-full flex items-center">
@@ -93,19 +93,19 @@ export function SearchBar() {
               value={localQuery}
               onChange={(e) => setLocalQuery(e.target.value)}
               placeholder={hasSearched ? "Search again..." : ""}
-              className="w-full bg-transparent border-none outline-none text-lg text-white placeholder-[var(--color-sphero-text-muted)]"
+              className="w-full bg-transparent border-none outline-none text-lg text-[var(--color-sphero-text)] placeholder-[var(--color-sphero-text-muted)]"
               autoFocus
             />
           </div>
 
           <div className="flex items-center gap-2 ml-3">
-            <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-[var(--color-sphero-text-muted)] bg-white/5 rounded border border-white/10">
+            <kbd className="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-xs font-semibold text-[var(--color-sphero-text-muted)] bg-[var(--color-sphero-text)]/5 rounded border border-[var(--color-sphero-border)]">
               <span className="text-[10px]">⌘</span>K
             </kbd>
             <button
               type="submit"
               disabled={!localQuery.trim() || isLoading}
-              className="px-6 py-2 rounded-full bg-[var(--color-sphero-text)] text-[var(--color-sphero-bg)] font-semibold text-sm hover:bg-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-6 py-2 rounded-full bg-[var(--color-sphero-accent)] text-white font-semibold text-sm hover:bg-[var(--color-sphero-accent)]/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Search
             </button>
