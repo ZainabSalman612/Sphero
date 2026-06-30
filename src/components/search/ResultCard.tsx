@@ -32,10 +32,11 @@ export function ResultCard({ post, index, variant = "medium" }: ResultCardProps)
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: Math.min(index * 0.05, 0.5) }}
+      onClick={() => window.open(targetUrl, '_blank', 'noopener,noreferrer')}
       className={cn(
         "glass glass-hover p-5 flex flex-col gap-4 relative group transition-all duration-300",
         baseHeight[variant],
-        "rounded-3xl hover:shadow-2xl"
+        "rounded-3xl hover:shadow-2xl cursor-pointer"
       )}
     >
       {/* Gradient Background */}
@@ -94,10 +95,7 @@ export function ResultCard({ post, index, variant = "medium" }: ResultCardProps)
       </div>
 
       {post.mediaType === "video" && post.mediaUrl ? (
-        <a
-          href={targetUrl}
-          target="_blank"
-          rel="noopener noreferrer"
+        <div
           className="mt-auto relative rounded-2xl overflow-hidden border border-[var(--color-sphero-border)] aspect-video flex items-center justify-center group/media cursor-pointer hover:opacity-90 transition-opacity"
         >
           <img 
@@ -110,7 +108,7 @@ export function ResultCard({ post, index, variant = "medium" }: ResultCardProps)
               <div className="w-0 h-0 border-l-6 border-l-transparent border-r-0 border-y-4 border-y-transparent border-l-white ml-1" />
             </div>
           </div>
-        </a>
+        </div>
       ) : post.mediaType && (
         <div className="mt-auto relative rounded-2xl overflow-hidden bg-gradient-to-br from-[var(--color-sphero-accent)]/10 to-[var(--color-sphero-cyan)]/10 border border-[var(--color-sphero-border)] aspect-video flex items-center justify-center group/media cursor-pointer">
           {post.mediaType === "image" ? <ImageIcon className="w-8 h-8 text-[var(--color-sphero-accent)] opacity-60 group-hover/media:opacity-100 transition-opacity" /> :
@@ -138,14 +136,11 @@ export function ResultCard({ post, index, variant = "medium" }: ResultCardProps)
           )}
         </div>
         
-        <a 
-          href={targetUrl} 
-          target="_blank" 
-          rel="noopener noreferrer"
-          className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-sphero-accent)] hover:text-[var(--color-sphero-accent-light)] transition-colors hover:translate-x-1 duration-200"
+        <div 
+          className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-sphero-accent)] hover:text-[var(--color-sphero-accent-light)] transition-colors hover:translate-x-1 duration-200 cursor-pointer"
         >
           Open <ExternalLink className="w-3.5 h-3.5" />
-        </a>
+        </div>
       </div>
     </motion.div>
   );
